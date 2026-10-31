@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>盯盘控制台 · Trade Console</title><link rel="icon" href="data:,"><link rel="stylesheet" href="style.css"></head><body>
+<header id="top"><div class="brand">◈ TRADE<b>CONSOLE</b> <span class="tag">只看不下单</span></div>
+<div class="stats"><span>监视代理 <b id="nAg">8</b></span><span>美股 <b id="stUS">—</b></span><span>原油 <b id="stOil">—</b></span><span id="clock">--:--:--</span></div></header>
+<main>
+<section class="panel left">
+ <h3>系统仪表</h3><div class="gauges" id="gauges"></div>
+ <h3>代理日志 <small>模拟</small></h3><div id="log"></div>
+</section>
+<section class="center">
+ <canvas id="orb"></canvas>
+ <div class="core-num"><div id="numLabel">—</div><div id="num">—</div>
+ <select id="numSel"><option value="pnl">交易日志净盈亏</option><option value="us">US100 时段</option><option value="oil">USOIL 时段</option></select></div>
+</section>
+<section class="panel right">
+ <h3>市场状态</h3><div id="mkt"></div>
+ <h3>日历</h3><div id="cal"></div>
+ <h3>代理活跃度 <small>模拟</small></h3><div id="bars"></div>
+</section>
+</main>
+<section class="charts">
+ <div class="chart"><div class="ct">US100 · OANDA:NAS100USD</div><div class="tv" data-sym="OANDA:NAS100USD"></div></div>
+ <div class="chart"><div class="ct">USOIL · TVC:USOIL</div><div class="tv" data-sym="TVC:USOIL"></div></div>
+</section>
+<footer>行情图来自 TradingView 免费嵌入（实时）。代理节点、日志、活跃度为基于时间规则的<b>模拟</b>，非交易信号。本页无任何下单功能。</footer>
+<script src="app.js"></script></body></html>
