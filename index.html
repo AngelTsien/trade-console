@@ -10,7 +10,7 @@
 <section class="center">
  <canvas id="orb"></canvas>
  <div class="core-num"><div id="numLabel">—</div><div id="num">—</div>
- <div class="cpick"><span class="si"><input id="cIn" placeholder="中心标的：黄金 / eth…" autocomplete="off"></span><button id="cPnl">盈亏</button><button id="nEdit">编辑节点</button></div><div id="nodeEd" hidden></div></div>
+ <button id="setBtn" class="bigbtn">⚙ 标的设置</button></div>
 </section>
 <section class="panel right">
  <h3>市场状态</h3><div id="mkt"></div>
@@ -18,7 +18,7 @@
  <h3>提醒统计</h3><div id="bars"></div>
 </section>
 </main>
-<div class="chartbar"><span class="si"><input id="symIn" placeholder="添加图表：黄金 / apple / dax…" autocomplete="off"></span><button id="symAdd">＋</button><button id="symReset">重置</button><a href="https://www.tradingview.com/chart/" target="_blank" rel="noopener">TradingView ↗</a></div>
 <section class="charts" id="charts"></section>
+<div id="modal" hidden><div class="mbox"><div class="mhead"><b>标的设置</b><button id="mClose" class="mbtn">关闭</button></div><div id="mBody"></div></div></div>
 <footer>提醒/心跳/US100·USOIL 报价来自你的 market-watcher（约每 10 分钟同步）；BTC 来自 Coinbase 公共接口；图表为 TradingView 免费嵌入。只读，无任何下单功能。</footer>
 <script src="symbols.js"></script><script src="app.js"></script></body></html>

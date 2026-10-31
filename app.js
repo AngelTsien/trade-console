@@ -38,11 +38,7 @@ function bars(){const al=LIVE?LIVE.alerts:[],cnt=s=>al.filter(a=>a.symbol===s).l
 $('#bars').innerHTML=['US100','USOIL'].map(s=>`<div class="bar"><span>${s}</span><i style="width:${cnt(s)/m*80+2}%"></i><b style="font-weight:400;color:#8ab">${cnt(s)}</b></div>`).join('')+`<div style="color:#567;font-size:10px">${LIVE?'更新于 '+ago(age(LIVE.generated)):'无数据'}</div>`}
 function num(){let l,v;if(CENTER==='pnl'){const j=journal();l=j?'交易日志 · 净盈亏':'交易日志 · 无数据';v=j?(j.n>=0?'+':'')+j.n.toFixed(2):'—'}
 else{const q=quote(CENTER);l=CENTER+(q?' · '+q.src+(q.c!=null?` · ${q.c>=0?'+':''}${(+q.c).toFixed(2)}%`:''):' · 暂无免费实时报价');v=q?fp(q.p):tk(CENTER)}
-$('#numLabel').textContent=l;$('#num').textContent=v;$('#nAg').textContent=NODES.length+2;$('#cIn').value=CENTER==='pnl'?'':CENTER}
-function editor(){const ed=$('#nodeEd');ed.innerHTML=NODES.map((s,i)=>`<span class="chip"><input value="${s}" data-i="${i}" autocomplete="off"><button data-x="${i}">✕</button></span>`).join('')+(NODES.length<8?'<span class="chip"><input id="nAdd" placeholder="＋ 添加节点" autocomplete="off"></span>':'')+'<button id="nReset">重置</button>';
-ed.querySelectorAll('input[data-i]').forEach(inp=>{const i=+inp.dataset.i;picker(inp,v=>{NODES[i]=v;saveN();editor();loadCrypto()});inp.addEventListener('blur',()=>setTimeout(()=>{if(NODES[i])inp.value=NODES[i]},160))});
-const na=$('#nAdd');if(na)picker(na,v=>{if(NODES.length<8){NODES.push(v);saveN();editor();loadCrypto()}});
-ed.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{NODES.splice(+b.dataset.x,1);saveN();editor()});$('#nReset').onclick=()=>{NODES=NDEF.slice();saveN();editor();loadCrypto()}}
+$('#numLabel').textContent=l;$('#num').textContent=v;$('#nAg').textContent=NODES.length+2}
 async function loadLive(){try{LIVE=await (await fetch('data/live.json?'+Date.now(),{cache:'no-store'})).json()}catch(e){}refresh()}
 function refresh(){think();mkt();gauges();bars();log();num()}
 
@@ -76,17 +72,37 @@ inp.addEventListener('keydown',e=>{const n=dd.children.length;if(e.key==='ArrowD
 addEventListener('message',e=>{let m=e.data;try{if(typeof m==='string')m=JSON.parse(m)}catch(x){return}if(!m||m.name!=='quoteUpdate'||!m.data||!m.data.original_name)return;
 const ifr=[...document.querySelectorAll('#charts iframe')],i=ifr.findIndex(f=>f.contentWindow===e.source);if(i<0)return;const box=ifr[i].closest('.chart'),idx=[...$('#charts').children].indexOf(box),nm=m.data.original_name.replace('_DLY:',':');
 if(idx<0||String(CH[idx]).split(':').pop()===nm.split(':').pop())return;
-if(idx>=0&&CH[idx]!==nm){CH[idx]=nm;saveCH();const inp=box.querySelector('.sym');if(document.activeElement!==inp)inp.value=nm}});
+if(idx>=0&&CH[idx]!==nm){CH[idx]=nm;saveCH();box.querySelector('.ct').textContent=nm}});
 function tv(el,sym){el.innerHTML='';const w=document.createElement('div');w.className='tradingview-widget-container__widget';w.style.height='100%';el.appendChild(w);const s=document.createElement('script');s.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';s.async=true;s.textContent=JSON.stringify({autosize:true,symbol:sym,interval:'15',timezone:'Europe/Rome',theme:'dark',style:'1',locale:'zh_CN',backgroundColor:'#0a0f1a',hide_side_toolbar:true,allow_symbol_change:true,save_image:false,support_host:'https://www.tradingview.com'});el.appendChild(s)}
 function charts(){const box=$('#charts');box.innerHTML='';box.style.gridTemplateColumns=innerWidth<900?'1fr':`repeat(${Math.min(CH.length,2+(CH.length===3))},1fr)`;
-CH.forEach((sym,i)=>{const c=document.createElement('div');c.className='chart';c.innerHTML=`<div class="ct"><input class="sym" value="${sym}" title="输入名称搜索，如 黄金 / apple"><button class="x" title="移除">✕</button></div><div class="tv tradingview-widget-container"></div>`;box.appendChild(c);
-const inp=c.querySelector('.sym');picker(inp,v=>{CH[i]=v;saveCH();charts()});inp.addEventListener('blur',()=>setTimeout(()=>inp.value=CH[i],160));c.querySelector('.x').onclick=()=>{if(CH.length>1){CH.splice(i,1);saveCH();charts()}};tv(c.querySelector('.tv'),sym)});
-$('#symAdd').disabled=CH.length>=4}
-let addSym=null;picker($('#symIn'),v=>{addSym=v;$('#symIn').value=v;$('#symAdd').onclick()});
-$('#symAdd').onclick=()=>{const v=addSym||(search($('#symIn').value)[0]||{}).s;if(v&&CH.length<4){CH.push(v);addSym=null;$('#symIn').value='';saveCH();charts()}};
-$('#symReset').onclick=()=>{CH=DEF.slice();saveCH();charts()};charts();
+CH.forEach((sym,i)=>{const c=document.createElement('div');c.className='chart';c.innerHTML=`<div class="ct">${sym}</div><div class="tv tradingview-widget-container"></div>`;box.appendChild(c);
+tv(c.querySelector('.tv'),sym)});
+}
+charts();
 cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,h=HIT.find(o=>Math.hypot(o.X-px,o.Y-py)<26);if(h){CH[0]=h.sy;saveCH();charts();$('#charts').scrollIntoView({behavior:'smooth'})}});
 cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();cv.style.cursor=HIT.some(o=>Math.hypot(o.X-e.clientX+r.left,o.Y-e.clientY+r.top)<26)?'pointer':''});
-picker($('#cIn'),v=>{CENTER=v;saveN();loadCrypto();num()});$('#cPnl').onclick=()=>{CENTER='pnl';saveN();num()};$('#nEdit').onclick=()=>{const ed=$('#nodeEd');ed.hidden=!ed.hidden;if(!ed.hidden)editor()};
+// ===== 标的设置（单一弹窗，全部为真实 <button>）=====
+let D=null,TGT=null;const esc=v=>String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nameOf=s=>{if(s==='pnl')return'交易日志净盈亏';const f=SYMS.find(x=>x[0]===s);return f?f[1]:''};
+function openSet(){D={center:CENTER,nodes:NODES.slice(),charts:CH.slice()};TGT=null;$('#modal').hidden=false;document.body.style.overflow='hidden';renderSet()}
+function closeSet(){$('#modal').hidden=true;document.body.style.overflow='';D=null}
+function row(sec,i,s){return`<div class="srow"><div class="sname"><b>${esc(s==='pnl'?'盈亏':tk(s))}</b><small>${esc(s==='pnl'?'交易日志':s)} ${esc(nameOf(s))}</small></div><button class="mbtn" data-a="chg" data-s="${sec}" data-i="${i}">更换</button>${sec==='center'?'':`<button class="mbtn red" data-a="del" data-s="${sec}" data-i="${i}">删除</button>`}</div>`}
+function renderSet(){const B=$('#mBody');
+if(TGT){B.innerHTML=`<div class="shead">${TGT.s==='center'?'中心光球':TGT.s==='nodes'?'轨道节点':'图表'} · ${TGT.i==null?'添加':'更换'}</div><input id="sq" type="search" placeholder="输入：黄金 / eth / nvda / 德指 / NASDAQ:AAPL" autocomplete="off" autocapitalize="off"><div id="sres"></div><div class="mfoot"><button class="mbtn" data-a="raw">使用输入</button>${TGT.s==='center'?'<button class="mbtn" data-a="pnl">改为交易日志盈亏</button>':''}<button class="mbtn" data-a="back">返回</button></div>`;
+const q=$('#sq'),res=()=>{const r=search(q.value);$('#sres').innerHTML=r.map(x=>`<button class="res" data-a="pick" data-v="${esc(x.s)}"><b>${esc(tk(x.s))}</b><span>${esc(x.d)}</span><em>${esc(x.s.split(':')[0])}</em></button>`).join('')||(q.value.trim()?'<div class="hint">本地库没有。可输入完整代码如 NASDAQ:AAPL 再点「使用输入」，或在图表左上角用 TradingView 全库搜索。</div>':'')};
+q.addEventListener('input',res);q.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const r=search(q.value);setSlot(r[0]?r[0].s:q.value.trim().toUpperCase())}});setTimeout(()=>q.focus(),50);return}
+B.innerHTML=`<div class="shead">中心光球</div>${row('center',0,D.center)}
+<div class="shead">轨道节点 <small>${D.nodes.length}/8</small></div>${D.nodes.map((s,i)=>row('nodes',i,s)).join('')}${D.nodes.length<8?'<button class="mbtn add" data-a="add" data-s="nodes">＋ 添加节点</button>':''}
+<div class="shead">图表 <small>${D.charts.length}/4</small></div>${D.charts.map((s,i)=>row('charts',i,s)).join('')}${D.charts.length<4?'<button class="mbtn add" data-a="add" data-s="charts">＋ 添加图表</button>':''}
+<div class="mfoot"><button class="mbtn primary" data-a="save">保存</button><button class="mbtn" data-a="reset">恢复默认</button></div>`}
+function setSlot(v){if(!v)return;const{s,i}=TGT;if(s==='center')D.center=v;else if(i==null)D[s].push(v);else D[s][i]=v;TGT=null;renderSet()}
+$('#mBody').addEventListener('click',e=>{const b=e.target.closest('button[data-a]');if(!b)return;const a=b.dataset.a,s=b.dataset.s,i=b.dataset.i==null?null:+b.dataset.i;
+if(a==='chg')TGT={s,i};else if(a==='add')TGT={s,i:null};else if(a==='del'){if(s==='charts'&&D.charts.length<=1)return;D[s].splice(i,1)}
+else if(a==='pick')return setSlot(b.dataset.v);else if(a==='raw'){const v=$('#sq').value.trim();if(!v)return;const r=search(v);return setSlot(/:/.test(v)?v.toUpperCase():(r[0]?r[0].s:v.toUpperCase()))}
+else if(a==='pnl')return setSlot('pnl');else if(a==='back')TGT=null;
+else if(a==='reset'){D={center:'BITSTAMP:BTCUSD',nodes:NDEF.slice(),charts:DEF.slice()}}
+else if(a==='save'){CENTER=D.center;NODES=D.nodes;CH=D.charts;saveN();saveCH();charts();loadCrypto();num();closeSet();return}
+renderSet()});
+$('#setBtn').addEventListener('click',openSet);$('#mClose').addEventListener('click',closeSet);$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeSet()});
 clock();cal();refresh();loadLive();loadCrypto();requestAnimationFrame(draw);
 setInterval(clock,1000);setInterval(loadLive,60000);setInterval(loadCrypto,30000);setInterval(num,5000);setInterval(()=>{mkt();think()},30000)})();
