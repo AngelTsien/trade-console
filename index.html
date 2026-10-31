@@ -18,10 +18,7 @@
  <h3>提醒统计</h3><div id="bars"></div>
 </section>
 </main>
-<section class="charts">
- <div class="chart"><div class="ct">US100 · OANDA:NAS100USD</div><div class="tv" data-sym="OANDA:NAS100USD"></div></div>
- <div class="chart"><div class="ct">USOIL · TVC:USOIL</div><div class="tv" data-sym="TVC:USOIL"></div></div>
- <div class="chart"><div class="ct">BTC · BITSTAMP:BTCUSD</div><div class="tv" data-sym="BITSTAMP:BTCUSD"></div></div>
-</section>
+<div class="chartbar"><input id="symIn" list="symList" placeholder="添加图表：如 NASDAQ:AAPL"><datalist id="symList"></datalist><button id="symAdd">＋</button><button id="symReset">重置</button><a href="https://www.tradingview.com/chart/" target="_blank" rel="noopener">TradingView ↗</a></div>
+<section class="charts" id="charts"></section>
 <footer>提醒/心跳/US100·USOIL 报价来自你的 market-watcher（约每 10 分钟同步）；BTC 来自 Coinbase 公共接口；图表为 TradingView 免费嵌入。只读，无任何下单功能。</footer>
 <script src="app.js"></script></body></html>

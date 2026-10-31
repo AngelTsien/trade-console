@@ -48,7 +48,20 @@ nodes.forEach(o=>{const sc=.6+.5*o.d;x.strokeStyle=`rgba(0,255,255,${.08+.2*o.d}
 const c=o.n==='SENTINEL'&&(stale()||!LIVE.watcher.alive)?'#f55':o.n==='ATLAS'?'#f7931a':'#0ff';x.shadowColor=c;x.shadowBlur=14;x.fillStyle=c;x.beginPath();x.arc(o.X,o.Y,5*sc,0,7);x.fill();x.shadowBlur=0;
 x.globalAlpha=.4+.6*o.d;x.fillStyle='#fff';x.font=`600 ${11*sc+1}px system-ui`;x.textAlign='center';x.fillText(o.n,o.X,o.Y-10*sc);x.fillStyle='#8ab';x.font=`${10*sc}px system-ui`;x.fillText(status[o.n]||'',o.X,o.Y+16*sc);x.globalAlpha=1});
 requestAnimationFrame(draw)}
-// TradingView 免费嵌入
-document.querySelectorAll('.tv').forEach(el=>{const w=document.createElement('div');w.className='tradingview-widget-container__widget';w.style.height='100%';el.className+=' tradingview-widget-container';el.appendChild(w);const s=document.createElement('script');s.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';s.async=true;s.textContent=JSON.stringify({autosize:true,symbol:el.dataset.sym,interval:'15',timezone:'Europe/Rome',theme:'dark',style:'1',locale:'zh_CN',backgroundColor:'#0a0f1a',hide_side_toolbar:true,allow_symbol_change:false,save_image:false,support_host:'https://www.tradingview.com'});el.appendChild(s)});
+// TradingView 免费嵌入：可自选标的，存 localStorage
+const PICKS={'NAS100':'OANDA:NAS100USD','USOIL':'TVC:USOIL','BTC':'BITSTAMP:BTCUSD','ETH':'BITSTAMP:ETHUSD','GOLD':'OANDA:XAUUSD','SPX':'SP:SPX','EURUSD':'FX:EURUSD','AAPL':'NASDAQ:AAPL','NVDA':'NASDAQ:NVDA','TSLA':'NASDAQ:TSLA'};
+const DEF=['OANDA:NAS100USD','TVC:USOIL','BITSTAMP:BTCUSD'],CK='tc_charts';
+let CH;try{CH=JSON.parse(localStorage.getItem(CK))}catch(e){}if(!Array.isArray(CH)||!CH.length)CH=DEF.slice();
+const saveCH=()=>localStorage.setItem(CK,JSON.stringify(CH));
+const norm=v=>{v=v.trim().toUpperCase();return PICKS[v]||v};
+$('#symList').innerHTML=Object.entries(PICKS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+function tv(el,sym){el.innerHTML='';const w=document.createElement('div');w.className='tradingview-widget-container__widget';w.style.height='100%';el.appendChild(w);const s=document.createElement('script');s.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';s.async=true;s.textContent=JSON.stringify({autosize:true,symbol:sym,interval:'15',timezone:'Europe/Rome',theme:'dark',style:'1',locale:'zh_CN',backgroundColor:'#0a0f1a',hide_side_toolbar:true,allow_symbol_change:true,save_image:false,support_host:'https://www.tradingview.com'});el.appendChild(s)}
+function charts(){const box=$('#charts');box.innerHTML='';box.style.gridTemplateColumns=innerWidth<900?'1fr':`repeat(${Math.min(CH.length,2+(CH.length===3))},1fr)`;
+CH.forEach((sym,i)=>{const c=document.createElement('div');c.className='chart';c.innerHTML=`<div class="ct"><input class="sym" list="symList" value="${sym}" title="回车切换标的"><button class="x" title="移除">✕</button></div><div class="tv tradingview-widget-container"></div>`;box.appendChild(c);
+const inp=c.querySelector('.sym');inp.onchange=()=>{const v=norm(inp.value);if(v){CH[i]=v;saveCH();charts()}};c.querySelector('.x').onclick=()=>{if(CH.length>1){CH.splice(i,1);saveCH();charts()}};tv(c.querySelector('.tv'),sym)});
+$('#symAdd').disabled=CH.length>=4}
+$('#symAdd').onclick=()=>{const v=norm($('#symIn').value);if(v&&CH.length<4){CH.push(v);$('#symIn').value='';saveCH();charts()}};
+$('#symIn').onkeydown=e=>{if(e.key==='Enter')$('#symAdd').onclick()};
+$('#symReset').onclick=()=>{CH=DEF.slice();saveCH();charts()};charts();
 clock();cal();refresh();loadLive();loadBTC();requestAnimationFrame(draw);
 setInterval(clock,1000);setInterval(loadLive,60000);setInterval(loadBTC,30000);setInterval(()=>{mkt();think()},30000)})();
