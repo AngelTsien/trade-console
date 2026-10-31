@@ -49,19 +49,29 @@ const c=o.n==='SENTINEL'&&(stale()||!LIVE.watcher.alive)?'#f55':o.n==='ATLAS'?'#
 x.globalAlpha=.4+.6*o.d;x.fillStyle='#fff';x.font=`600 ${11*sc+1}px system-ui`;x.textAlign='center';x.fillText(o.n,o.X,o.Y-10*sc);x.fillStyle='#8ab';x.font=`${10*sc}px system-ui`;x.fillText(status[o.n]||'',o.X,o.Y+16*sc);x.globalAlpha=1});
 requestAnimationFrame(draw)}
 // TradingView 免费嵌入：可自选标的，存 localStorage
-const PICKS={'NAS100':'OANDA:NAS100USD','USOIL':'TVC:USOIL','BTC':'BITSTAMP:BTCUSD','ETH':'BITSTAMP:ETHUSD','GOLD':'OANDA:XAUUSD','SPX':'SP:SPX','EURUSD':'FX:EURUSD','AAPL':'NASDAQ:AAPL','NVDA':'NASDAQ:NVDA','TSLA':'NASDAQ:TSLA'};
 const DEF=['OANDA:NAS100USD','TVC:USOIL','BITSTAMP:BTCUSD'],CK='tc_charts';
 let CH;try{CH=JSON.parse(localStorage.getItem(CK))}catch(e){}if(!Array.isArray(CH)||!CH.length)CH=DEF.slice();
 const saveCH=()=>localStorage.setItem(CK,JSON.stringify(CH));
-const norm=v=>{v=v.trim().toUpperCase();return PICKS[v]||v};
-$('#symList').innerHTML=Object.entries(PICKS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+function search(q){q=q.trim().toLowerCase();if(!q)return[];const r=[];for(const[s,d,k]of SYMS){const t=(s+' '+d+' '+k).toLowerCase(),tk=s.split(':')[1].toLowerCase();let sc=tk===q?0:k.split(' ').includes(q)?1:tk.startsWith(q)?2:t.includes(q)?3:-1;if(sc>=0)r.push([sc,s,d])}
+r.sort((a,b)=>a[0]-b[0]);const o=r.slice(0,8).map(x=>({s:x[1],d:x[2]}));if(/^[A-Z0-9_!.]+:[A-Z0-9_!.]+$/i.test(q.trim()))o.unshift({s:q.trim().toUpperCase(),d:'直接使用此代码'});return o}
+function picker(inp,onPick){const dd=document.createElement('div');dd.className='dd';inp.parentNode.style.position='relative';inp.after(dd);let items=[],sel=0;
+const show=()=>{items=search(inp.value);sel=0;dd.innerHTML=items.length?items.map((x,i)=>`<div data-i="${i}" class="${i?'':'on'}"><b>${x.s.split(':')[1]}</b> <span>${x.d}</span> <em>${x.s.split(':')[0]}</em></div>`).join(''):(inp.value.trim()?'<div class="none">本地库没有，点图表左上角的标的名可搜索 TradingView 全库</div>':'');dd.style.display=dd.innerHTML?'block':'none'};
+const pick=i=>{const x=items[i];if(x){dd.style.display='none';onPick(x.s)}};
+inp.addEventListener('input',show);inp.addEventListener('focus',()=>{inp.select();show()});inp.addEventListener('blur',()=>setTimeout(()=>dd.style.display='none',150));
+dd.addEventListener('mousedown',e=>{const d=e.target.closest('[data-i]');if(d){e.preventDefault();pick(+d.dataset.i)}});
+inp.addEventListener('keydown',e=>{const n=dd.children.length;if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if(!items.length)return;sel=(sel+(e.key==='ArrowDown'?1:n-1))%items.length;[...dd.children].forEach((c,i)=>c.classList.toggle('on',i===sel))}else if(e.key==='Enter'){e.preventDefault();pick(sel)}else if(e.key==='Escape')dd.style.display='none'})}
+// 图表内置搜索切换后，widget 会 postMessage quoteUpdate（含 original_name），据此记住选择
+addEventListener('message',e=>{let m=e.data;try{if(typeof m==='string')m=JSON.parse(m)}catch(x){return}if(!m||m.name!=='quoteUpdate'||!m.data||!m.data.original_name)return;
+const ifr=[...document.querySelectorAll('#charts iframe')],i=ifr.findIndex(f=>f.contentWindow===e.source);if(i<0)return;const box=ifr[i].closest('.chart'),idx=[...$('#charts').children].indexOf(box),nm=m.data.original_name.replace('_DLY:',':');
+if(idx<0||String(CH[idx]).split(':').pop()===nm.split(':').pop())return;
+if(idx>=0&&CH[idx]!==nm){CH[idx]=nm;saveCH();const inp=box.querySelector('.sym');if(document.activeElement!==inp)inp.value=nm}});
 function tv(el,sym){el.innerHTML='';const w=document.createElement('div');w.className='tradingview-widget-container__widget';w.style.height='100%';el.appendChild(w);const s=document.createElement('script');s.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';s.async=true;s.textContent=JSON.stringify({autosize:true,symbol:sym,interval:'15',timezone:'Europe/Rome',theme:'dark',style:'1',locale:'zh_CN',backgroundColor:'#0a0f1a',hide_side_toolbar:true,allow_symbol_change:true,save_image:false,support_host:'https://www.tradingview.com'});el.appendChild(s)}
 function charts(){const box=$('#charts');box.innerHTML='';box.style.gridTemplateColumns=innerWidth<900?'1fr':`repeat(${Math.min(CH.length,2+(CH.length===3))},1fr)`;
-CH.forEach((sym,i)=>{const c=document.createElement('div');c.className='chart';c.innerHTML=`<div class="ct"><input class="sym" list="symList" value="${sym}" title="回车切换标的"><button class="x" title="移除">✕</button></div><div class="tv tradingview-widget-container"></div>`;box.appendChild(c);
-const inp=c.querySelector('.sym');inp.onchange=()=>{const v=norm(inp.value);if(v){CH[i]=v;saveCH();charts()}};c.querySelector('.x').onclick=()=>{if(CH.length>1){CH.splice(i,1);saveCH();charts()}};tv(c.querySelector('.tv'),sym)});
+CH.forEach((sym,i)=>{const c=document.createElement('div');c.className='chart';c.innerHTML=`<div class="ct"><input class="sym" value="${sym}" title="输入名称搜索，如 黄金 / apple"><button class="x" title="移除">✕</button></div><div class="tv tradingview-widget-container"></div>`;box.appendChild(c);
+const inp=c.querySelector('.sym');picker(inp,v=>{CH[i]=v;saveCH();charts()});inp.addEventListener('blur',()=>setTimeout(()=>inp.value=CH[i],160));c.querySelector('.x').onclick=()=>{if(CH.length>1){CH.splice(i,1);saveCH();charts()}};tv(c.querySelector('.tv'),sym)});
 $('#symAdd').disabled=CH.length>=4}
-$('#symAdd').onclick=()=>{const v=norm($('#symIn').value);if(v&&CH.length<4){CH.push(v);$('#symIn').value='';saveCH();charts()}};
-$('#symIn').onkeydown=e=>{if(e.key==='Enter')$('#symAdd').onclick()};
+let addSym=null;picker($('#symIn'),v=>{addSym=v;$('#symIn').value=v;$('#symAdd').onclick()});
+$('#symAdd').onclick=()=>{const v=addSym||(search($('#symIn').value)[0]||{}).s;if(v&&CH.length<4){CH.push(v);addSym=null;$('#symIn').value='';saveCH();charts()}};
 $('#symReset').onclick=()=>{CH=DEF.slice();saveCH();charts()};charts();
 clock();cal();refresh();loadLive();loadBTC();requestAnimationFrame(draw);
 setInterval(clock,1000);setInterval(loadLive,60000);setInterval(loadBTC,30000);setInterval(()=>{mkt();think()},30000)})();
