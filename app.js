@@ -1,6 +1,21 @@
 (()=>{const $=s=>document.querySelector(s);
-const AG=[['ATLAS','BTC'],['SENTINEL','监控健康'],['SCOUT','US100 提醒'],['ORACLE','USOIL 提醒'],['CHARTIST','最新价'],['PILOT','时段'],['LEDGER','交易日志']];
-let LIVE=null,BTC=null;
+let LIVE=null;const Q={};// Q[ticker]={p,c,src,t} 只存真实报价
+const NK='tc_nodes',CK2='tc_center',NDEF=['BITSTAMP:BTCUSD','OANDA:NAS100USD','TVC:USOIL','OANDA:XAUUSD'];
+let NODES;try{NODES=JSON.parse(localStorage.getItem(NK))}catch(e){}if(!Array.isArray(NODES))NODES=NDEF.slice();
+let CENTER=localStorage.getItem(CK2)||'BITSTAMP:BTCUSD';
+const saveN=()=>{localStorage.setItem(NK,JSON.stringify(NODES));localStorage.setItem(CK2,CENTER)};
+const tk=s=>String(s).split(':').pop().toUpperCase();
+const CRYPTO=/^(BTC|ETH|SOL|XRP|DOGE|ADA|BNB|LTC|AVAX|LINK|DOT|SHIB|TRX|TON|PEPE|SUI)(USD|USDT|USDC)$/;
+function quote(sym){const t=tk(sym),P=LIVE&&LIVE.prices||{};
+if(Q[t]&&Date.now()-Q[t].t<15*60e3)return Q[t];
+if((t==='NAS100USD'||t==='US100')&&P.US100)return{p:P.US100,src:'监控'};if(t==='USOIL'&&P.USOIL)return{p:P.USOIL,src:'监控'};return null}
+const fp=p=>(+p).toLocaleString('en-US',{maximumFractionDigits:p>=1000?0:p>=10?2:4});
+const qtxt=q=>q?fp(q.p)+(q.c!=null?` ${q.c>=0?'+':''}${(+q.c).toFixed(2)}%`:''):'点击看图';
+async function loadCrypto(){const want=new Set([...NODES,CENTER].map(tk).filter(t=>CRYPTO.test(t)));for(const t of want){const b=t.match(CRYPTO)[1];
+try{const r=await (await fetch(`https://api.exchange.coinbase.com/products/${b}-USD/stats`)).json();if(!r.last)throw 0;Q[t]={p:+r.last,c:(r.last-r.open)/r.open*100,src:'Coinbase',t:Date.now()}}
+catch(e){try{const r=await (await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${b}USDT`)).json();if(r.lastPrice)Q[t]={p:+r.lastPrice,c:+r.priceChangePercent,src:'Binance',t:Date.now()}}catch(e2){}}}num()}
+// TradingView 图表发出的 quoteUpdate 也是真实报价，顺手缓存
+addEventListener('message',e=>{let m=e.data;try{if(typeof m==='string')m=JSON.parse(m)}catch(x){return}if(m&&m.name==='quoteUpdate'&&m.data&&m.data.last_price!=null)Q[tk(m.data.original_name)]={p:m.data.last_price,c:m.data.change_percent,src:'TradingView',t:Date.now()}});
 const fmtT=t=>new Date(t*1000).toLocaleString('zh-CN',{timeZone:'Europe/Rome',hour12:false,month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 const age=t=>t?Math.round((Date.now()/1000-t)/60):null;
 const ago=m=>m==null?'—':m<60?m+' 分钟前':m<1440?Math.round(m/60)+' 小时前':Math.round(m/1440)+' 天前';
@@ -11,12 +26,7 @@ function cashOpen(){const{d,h}=ny();return!['Sat','Sun'].includes(d)&&h>=9.5&&h<
 function journal(){try{const s=JSON.parse(localStorage.getItem('tj_v1'));const t=s&&(s.trades||[]);if(!Array.isArray(t)||!t.length)return null;let n=0,w=0;t.forEach(x=>{const v=(+x.pnl||0)-Math.abs(+x.commission||0)+(+x.swap||0);n+=v;if(v>0)w++});return{n,c:t.length,wr:w/t.length}}catch(e){return null}}
 const status={};
 function stale(){return !LIVE||age(LIVE.generated)>15}
-function think(){const o=cfdOpen(),c=cashOpen(),j=journal(),L=LIVE,al=L?L.alerts:[],last=s=>al.filter(x=>x.symbol===s).slice(-1)[0];
-status.ATLAS=BTC?`$${BTC.p.toLocaleString('en-US',{maximumFractionDigits:0})} ${BTC.c>=0?'+':''}${BTC.c.toFixed(2)}%`:'BTC 获取中';
-status.SENTINEL=!L?'无数据':stale()?'数据过期':(L.watcher.alive?'运行中 · 心跳 '+ago(age(L.watcher.heartbeat)):'监控离线');
-const u=last('US100'),q=last('USOIL');status.SCOUT=u?u.type+' · '+ago(age(u.t)):'暂无提醒';status.ORACLE=q?q.type+' · '+ago(age(q.t)):'暂无提醒';
-const P=L&&L.prices||{};status.CHARTIST=P.US100?`US100 ${P.US100} · USOIL ${P.USOIL??'—'}`:'休市中，暂无报价';
-status.PILOT=c?'美股现货开盘':(o?'CFD 交易中':'CFD 休市');status.LEDGER=j?`净 ${j.n.toFixed(2)} · ${j.c} 笔`:'本浏览器无日志数据'}
+function think(){const L=LIVE,j=journal();status.SENTINEL=!L?'无数据':stale()?'数据过期':(L.watcher.alive?'运行中 · 心跳 '+ago(age(L.watcher.heartbeat)):'监控离线');status.LEDGER=j?`净 ${j.n.toFixed(2)} · ${j.c} 笔`:'本浏览器无日志数据'}
 function log(){const l=$('#log');if(!LIVE){l.innerHTML='<div>等待监控数据…</div>';return}
 l.innerHTML=(stale()?'<div style="color:#f55">⚠ 数据过期（'+ago(age(LIVE.generated))+'更新）</div>':'')+LIVE.alerts.slice().reverse().map(a=>`<div><span style="color:#567">${fmtT(a.t)}</span> <b>${a.symbol}</b> 触及 ${a.type}</div>`).join('')||'<div>暂无提醒</div>'}
 function gauges(){const j=journal(),L=LIVE,n24=L?L.alerts.filter(a=>age(a.t)<1440).length:0,hb=L?age(L.watcher.heartbeat):null,v=[['心跳(分)',hb??'—',Math.max(30,hb||0),hb!=null&&hb<=15?'#0ff':'#f55'],['24h提醒',n24,Math.max(10,n24),'#0ff'],['胜率',j?Math.round(j.wr*100):'—',100,'#0ff']];
@@ -26,27 +36,29 @@ $('#mkt').innerHTML=`<div class="mk">US100 (CFD)<span class="${o?'on':'off'}">${
 function cal(){const n=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Rome'})),y=n.getFullYear(),m=n.getMonth(),f=(new Date(y,m,1).getDay()+6)%7,L=new Date(y,m+1,0).getDate();let h=`<div style="color:#8ab;margin-bottom:4px">${y}年${m+1}月</div><table><tr>${'一二三四五六日'.split('').map(x=>`<td>${x}</td>`).join('')}</tr><tr>`;for(let i=0;i<f;i++)h+='<td></td>';for(let d=1;d<=L;d++){h+=`<td class="${d===n.getDate()?'t':''}">${d}</td>`;if((d+f)%7===0)h+='</tr><tr>'}$('#cal').innerHTML=h+'</tr></table>'}
 function bars(){const al=LIVE?LIVE.alerts:[],cnt=s=>al.filter(a=>a.symbol===s).length,m=Math.max(1,cnt('US100'),cnt('USOIL'));
 $('#bars').innerHTML=['US100','USOIL'].map(s=>`<div class="bar"><span>${s}</span><i style="width:${cnt(s)/m*80+2}%"></i><b style="font-weight:400;color:#8ab">${cnt(s)}</b></div>`).join('')+`<div style="color:#567;font-size:10px">${LIVE?'更新于 '+ago(age(LIVE.generated)):'无数据'}</div>`}
-function num(){const s=$('#numSel').value,j=journal(),P=LIVE&&LIVE.prices||{};let l,v;
-if(s==='pnl'){l=j?'交易日志 · 净盈亏':'交易日志 · 无数据';v=j?(j.n>=0?'+':'')+j.n.toFixed(2):'—'}
-else if(s==='btc'){l='BTC/USD · Coinbase';v=BTC?BTC.p.toLocaleString('en-US',{maximumFractionDigits:0}):'—'}
-else{const k=s==='us'?'US100':'USOIL';l=k+(P[k]?' · 监控报价 '+(LIVE.prices_t?ago(age(LIVE.prices_t)):''):' · '+(cfdOpen()?'等待报价':'休市'));v=P[k]??(cfdOpen()?'—':'休市')}
-$('#numLabel').textContent=l;$('#num').textContent=v}
+function num(){let l,v;if(CENTER==='pnl'){const j=journal();l=j?'交易日志 · 净盈亏':'交易日志 · 无数据';v=j?(j.n>=0?'+':'')+j.n.toFixed(2):'—'}
+else{const q=quote(CENTER);l=CENTER+(q?' · '+q.src+(q.c!=null?` · ${q.c>=0?'+':''}${(+q.c).toFixed(2)}%`:''):' · 暂无免费实时报价');v=q?fp(q.p):tk(CENTER)}
+$('#numLabel').textContent=l;$('#num').textContent=v;$('#nAg').textContent=NODES.length+2;$('#cIn').value=CENTER==='pnl'?'':CENTER}
+function editor(){const ed=$('#nodeEd');ed.innerHTML=NODES.map((s,i)=>`<span class="chip"><input value="${s}" data-i="${i}" autocomplete="off"><button data-x="${i}">✕</button></span>`).join('')+(NODES.length<8?'<span class="chip"><input id="nAdd" placeholder="＋ 添加节点" autocomplete="off"></span>':'')+'<button id="nReset">重置</button>';
+ed.querySelectorAll('input[data-i]').forEach(inp=>{const i=+inp.dataset.i;picker(inp,v=>{NODES[i]=v;saveN();editor();loadCrypto()});inp.addEventListener('blur',()=>setTimeout(()=>{if(NODES[i])inp.value=NODES[i]},160))});
+const na=$('#nAdd');if(na)picker(na,v=>{if(NODES.length<8){NODES.push(v);saveN();editor();loadCrypto()}});
+ed.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{NODES.splice(+b.dataset.x,1);saveN();editor()});$('#nReset').onclick=()=>{NODES=NDEF.slice();saveN();editor();loadCrypto()}}
 async function loadLive(){try{LIVE=await (await fetch('data/live.json?'+Date.now(),{cache:'no-store'})).json()}catch(e){}refresh()}
-async function loadBTC(){try{const r=await (await fetch('https://api.exchange.coinbase.com/products/BTC-USD/stats')).json();BTC={p:+r.last,c:(r.last-r.open)/r.open*100}}catch(e){try{const r=await (await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT')).json();BTC={p:+r.lastPrice,c:+r.priceChangePercent}}catch(e2){}}think();num()}
 function refresh(){think();mkt();gauges();bars();log();num()}
-$('#numSel').onchange=num;if(!journal())$('#numSel').value='btc';
+
 function clock(){$('#clock').textContent='罗马 '+new Date().toLocaleTimeString('zh-CN',{timeZone:'Europe/Rome',hour12:false})}
 // orb
-const cv=$('#orb'),x=cv.getContext('2d');let W,H;function rs(){const r=devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*r;cv.height=H*r;x.setTransform(r,0,0,r,0,0)}addEventListener('resize',rs);rs();
+let HIT=[];const cv=$('#orb'),x=cv.getContext('2d');let W,H;function rs(){const r=devicePixelRatio||1;W=cv.clientWidth;H=cv.clientHeight;cv.width=W*r;cv.height=H*r;x.setTransform(r,0,0,r,0,0)}addEventListener('resize',rs);rs();
 const pts=Array.from({length:500},()=>({a:Math.random()*6.28,b:Math.acos(2*Math.random()-1),s:.2+Math.random()*.6}));
 function draw(t){t/=1000;x.clearRect(0,0,W,H);const cx=W/2,cy=H*.44,R=Math.min(W,H)*.13*(1+.04*Math.sin(t*2)),OR=Math.min(W*.42,H*.36);
 const g=x.createRadialGradient(cx,cy,0,cx,cy,R*2.6);g.addColorStop(0,'#fff');g.addColorStop(.25,'#ffe7b0');g.addColorStop(.5,'#f5c76b55');g.addColorStop(1,'transparent');x.fillStyle=g;x.beginPath();x.arc(cx,cy,R*2.6,0,7);x.fill();
 x.fillStyle='#fff8';pts.forEach(p=>{const a=p.a+t*p.s*.3,r=R*1.1,X=Math.sin(p.b)*Math.cos(a),Z=Math.sin(p.b)*Math.sin(a);x.globalAlpha=.3+.5*(Z+1)/2;x.fillRect(cx+X*r,cy+Math.cos(p.b)*r,1.4,1.4)});x.globalAlpha=1;
 x.strokeStyle='#0ff3';x.beginPath();x.ellipse(cx,cy,OR,OR*.32,0,0,7);x.stroke();
-const nodes=AG.map(([n,z],i)=>{const a=t*.15+i/AG.length*6.283;return{n,z,X:cx+Math.cos(a)*OR,Y:cy+Math.sin(a)*OR*.32,d:(Math.sin(a)+1)/2}}).sort((p,q)=>p.d-q.d);
+const all=[...NODES.map(sy=>({n:tk(sy),sy,sub:qtxt(quote(sy)),sys:0})),{n:'SENTINEL',sub:status.SENTINEL||'',sys:1},{n:'LEDGER',sub:status.LEDGER||'',sys:1}];HIT=[];
+const nodes=all.map((o,i)=>{const a=t*.15+i/all.length*6.283;return{...o,X:cx+Math.cos(a)*OR,Y:cy+Math.sin(a)*OR*.32,d:(Math.sin(a)+1)/2}}).sort((p,q)=>p.d-q.d);
 nodes.forEach(o=>{const sc=.6+.5*o.d;x.strokeStyle=`rgba(0,255,255,${.08+.2*o.d})`;x.beginPath();x.moveTo(cx,cy);x.lineTo(o.X,o.Y);x.stroke();
-const c=o.n==='SENTINEL'&&(stale()||!LIVE.watcher.alive)?'#f55':o.n==='ATLAS'?'#f7931a':'#0ff';x.shadowColor=c;x.shadowBlur=14;x.fillStyle=c;x.beginPath();x.arc(o.X,o.Y,5*sc,0,7);x.fill();x.shadowBlur=0;
-x.globalAlpha=.4+.6*o.d;x.fillStyle='#fff';x.font=`600 ${11*sc+1}px system-ui`;x.textAlign='center';x.fillText(o.n,o.X,o.Y-10*sc);x.fillStyle='#8ab';x.font=`${10*sc}px system-ui`;x.fillText(status[o.n]||'',o.X,o.Y+16*sc);x.globalAlpha=1});
+const c=o.sys?(o.n==='SENTINEL'&&(stale()||!LIVE.watcher.alive)?'#f55':'#f0a'):'#0ff';x.shadowColor=c;x.shadowBlur=14;x.fillStyle=c;x.beginPath();x.arc(o.X,o.Y,5*sc,0,7);x.fill();x.shadowBlur=0;
+x.globalAlpha=.4+.6*o.d;x.fillStyle='#fff';x.font=`600 ${11*sc+1}px system-ui`;x.textAlign='center';x.fillText(o.n,o.X,o.Y-10*sc);x.fillStyle=o.sub==='点击看图'?'#567':'#9bd';x.font=`${10*sc}px system-ui`;x.fillText(o.sub,o.X,o.Y+16*sc);x.globalAlpha=1;if(o.sy)HIT.push(o)});
 requestAnimationFrame(draw)}
 // TradingView 免费嵌入：可自选标的，存 localStorage
 const DEF=['OANDA:NAS100USD','TVC:USOIL','BITSTAMP:BTCUSD'],CK='tc_charts';
@@ -73,5 +85,8 @@ $('#symAdd').disabled=CH.length>=4}
 let addSym=null;picker($('#symIn'),v=>{addSym=v;$('#symIn').value=v;$('#symAdd').onclick()});
 $('#symAdd').onclick=()=>{const v=addSym||(search($('#symIn').value)[0]||{}).s;if(v&&CH.length<4){CH.push(v);addSym=null;$('#symIn').value='';saveCH();charts()}};
 $('#symReset').onclick=()=>{CH=DEF.slice();saveCH();charts()};charts();
-clock();cal();refresh();loadLive();loadBTC();requestAnimationFrame(draw);
-setInterval(clock,1000);setInterval(loadLive,60000);setInterval(loadBTC,30000);setInterval(()=>{mkt();think()},30000)})();
+cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,h=HIT.find(o=>Math.hypot(o.X-px,o.Y-py)<26);if(h){CH[0]=h.sy;saveCH();charts();$('#charts').scrollIntoView({behavior:'smooth'})}});
+cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();cv.style.cursor=HIT.some(o=>Math.hypot(o.X-e.clientX+r.left,o.Y-e.clientY+r.top)<26)?'pointer':''});
+picker($('#cIn'),v=>{CENTER=v;saveN();loadCrypto();num()});$('#cPnl').onclick=()=>{CENTER='pnl';saveN();num()};$('#nEdit').onclick=()=>{const ed=$('#nodeEd');ed.hidden=!ed.hidden;if(!ed.hidden)editor()};
+clock();cal();refresh();loadLive();loadCrypto();requestAnimationFrame(draw);
+setInterval(clock,1000);setInterval(loadLive,60000);setInterval(loadCrypto,30000);setInterval(num,5000);setInterval(()=>{mkt();think()},30000)})();
