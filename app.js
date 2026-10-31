@@ -1,8 +1,9 @@
 (()=>{const $=s=>document.querySelector(s);
 let LIVE=null;const Q={};// Q[ticker]={p,c,src,t} 只存真实报价
 const NK='tc_nodes',CK2='tc_center',NDEF=['BITSTAMP:BTCUSD','OANDA:NAS100USD','TVC:USOIL','OANDA:XAUUSD'];
-let NODES;try{NODES=JSON.parse(localStorage.getItem(NK))}catch(e){}if(!Array.isArray(NODES))NODES=NDEF.slice();
-let CENTER=localStorage.getItem(CK2)||'BITSTAMP:BTCUSD';
+let NODES;try{NODES=JSON.parse(localStorage.getItem(NK))}catch(e){}const okSym=v=>typeof v==='string'&&/^[A-Z0-9_.!\-]+:[A-Z0-9_.!\-]+$/i.test(v);
+NODES=Array.isArray(NODES)?NODES.filter(okSym).slice(0,8):null;if(!NODES||!NODES.length)NODES=NDEF.slice();
+let CENTER=localStorage.getItem(CK2);if(CENTER!=='pnl'&&!okSym(CENTER))CENTER='BITSTAMP:BTCUSD';
 const saveN=()=>{localStorage.setItem(NK,JSON.stringify(NODES));localStorage.setItem(CK2,CENTER)};
 const tk=s=>String(s).split(':').pop().toUpperCase();
 const CRYPTO=/^(BTC|ETH|SOL|XRP|DOGE|ADA|BNB|LTC|AVAX|LINK|DOT|SHIB|TRX|TON|PEPE|SUI)(USD|USDT|USDC)$/;
@@ -40,7 +41,7 @@ function num(){let l,v;if(CENTER==='pnl'){const j=journal();l=j?'交易日志 ·
 else{const q=quote(CENTER);l=CENTER+(q?' · '+q.src+(q.c!=null?` · ${q.c>=0?'+':''}${(+q.c).toFixed(2)}%`:''):' · 暂无免费实时报价');v=q?fp(q.p):tk(CENTER)}
 $('#numLabel').textContent=l;$('#num').textContent=v;$('#nAg').textContent=NODES.length+2}
 async function loadLive(){try{LIVE=await (await fetch('data/live.json?'+Date.now(),{cache:'no-store'})).json()}catch(e){}refresh()}
-function refresh(){think();mkt();gauges();bars();log();num()}
+function refresh(){[think,mkt,gauges,bars,log,num].forEach(f=>{try{f()}catch(e){console.error(f.name,e)}})}
 
 function clock(){$('#clock').textContent='罗马 '+new Date().toLocaleTimeString('zh-CN',{timeZone:'Europe/Rome',hour12:false})}
 // orb
@@ -58,11 +59,11 @@ x.globalAlpha=.4+.6*o.d;x.fillStyle='#fff';x.font=`600 ${11*sc+1}px system-ui`;x
 requestAnimationFrame(draw)}
 // TradingView 免费嵌入：可自选标的，存 localStorage
 const DEF=['OANDA:NAS100USD','TVC:USOIL','BITSTAMP:BTCUSD'],CK='tc_charts';
-let CH;try{CH=JSON.parse(localStorage.getItem(CK))}catch(e){}if(!Array.isArray(CH)||!CH.length)CH=DEF.slice();
+let CH;try{CH=JSON.parse(localStorage.getItem(CK))}catch(e){}CH=Array.isArray(CH)?CH.filter(okSym).slice(0,4):null;if(!CH||!CH.length)CH=DEF.slice();
 const saveCH=()=>localStorage.setItem(CK,JSON.stringify(CH));
 function search(q){q=q.trim().toLowerCase();if(!q)return[];const r=[];for(const[s,d,k]of SYMS){const t=(s+' '+d+' '+k).toLowerCase(),tk=s.split(':')[1].toLowerCase();let sc=tk===q?0:k.split(' ').includes(q)?1:tk.startsWith(q)?2:t.includes(q)?3:-1;if(sc>=0)r.push([sc,s,d])}
 r.sort((a,b)=>a[0]-b[0]);const o=r.slice(0,8).map(x=>({s:x[1],d:x[2]}));if(/^[A-Z0-9_!.]+:[A-Z0-9_!.]+$/i.test(q.trim()))o.unshift({s:q.trim().toUpperCase(),d:'直接使用此代码'});return o}
-function picker(inp,onPick){const dd=document.createElement('div');dd.className='dd';inp.parentNode.style.position='relative';inp.after(dd);let items=[],sel=0;
+function picker(inp,onPick){if(!inp)return;const dd=document.createElement('div');dd.className='dd';inp.parentNode.style.position='relative';inp.after(dd);let items=[],sel=0;
 const show=()=>{items=search(inp.value);sel=0;dd.innerHTML=items.length?items.map((x,i)=>`<div data-i="${i}" class="${i?'':'on'}"><b>${x.s.split(':')[1]}</b> <span>${x.d}</span> <em>${x.s.split(':')[0]}</em></div>`).join(''):(inp.value.trim()?'<div class="none">本地库没有，点图表左上角的标的名可搜索 TradingView 全库</div>':'');dd.style.display=dd.innerHTML?'block':'none'};
 const pick=i=>{const x=items[i];if(x){dd.style.display='none';onPick(x.s)}};
 inp.addEventListener('input',show);inp.addEventListener('focus',()=>{inp.select();show()});inp.addEventListener('blur',()=>setTimeout(()=>dd.style.display='none',150));
@@ -78,7 +79,7 @@ function charts(){const box=$('#charts');box.innerHTML='';box.style.gridTemplate
 CH.forEach((sym,i)=>{const c=document.createElement('div');c.className='chart';c.innerHTML=`<div class="ct">${sym}</div><div class="tv tradingview-widget-container"></div>`;box.appendChild(c);
 tv(c.querySelector('.tv'),sym)});
 }
-charts();
+try{charts()}catch(e){console.error(e)}
 cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,h=HIT.find(o=>Math.hypot(o.X-px,o.Y-py)<26);if(h){CH[0]=h.sy;saveCH();charts();$('#charts').scrollIntoView({behavior:'smooth'})}});
 cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();cv.style.cursor=HIT.some(o=>Math.hypot(o.X-e.clientX+r.left,o.Y-e.clientY+r.top)<26)?'pointer':''});
 // ===== 标的设置（单一弹窗，全部为真实 <button>）=====
@@ -103,6 +104,6 @@ else if(a==='pnl')return setSlot('pnl');else if(a==='back')TGT=null;
 else if(a==='reset'){D={center:'BITSTAMP:BTCUSD',nodes:NDEF.slice(),charts:DEF.slice()}}
 else if(a==='save'){CENTER=D.center;NODES=D.nodes;CH=D.charts;saveN();saveCH();charts();loadCrypto();num();closeSet();return}
 renderSet()});
-$('#setBtn').addEventListener('click',openSet);$('#mClose').addEventListener('click',closeSet);$('#modal').addEventListener('click',e=>{if(e.target.id==='modal')closeSet()});
-clock();cal();refresh();loadLive();loadCrypto();requestAnimationFrame(draw);
+const on=(id,f)=>{const e=$(id);if(e)e.addEventListener('click',f)};on('#setBtn',openSet);on('#mClose',closeSet);on('#modal',e=>{if(e.target.id==='modal')closeSet()});
+const safe=f=>{try{f()}catch(e){console.error('init',e)}};[clock,cal,refresh,loadLive,loadCrypto].forEach(safe);requestAnimationFrame(draw);
 setInterval(clock,1000);setInterval(loadLive,60000);setInterval(loadCrypto,30000);setInterval(num,5000);setInterval(()=>{mkt();think()},30000)})();
